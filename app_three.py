@@ -667,3 +667,7 @@ async def close_income_expense_accounts(request:Request,db=Depends(get_db_two),
       db.commit()
       return {"msg":"ok"}
 
+@app.get('/bye')
+async def last_route():
+      return {"msg":"bye"}
+
