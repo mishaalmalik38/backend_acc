@@ -9,11 +9,14 @@ from fastapi.security import OAuth2PasswordBearer,OAuth2PasswordRequestForm
 from jose import JWTError,jwt
 from passlib.context import CryptContext
 from models_two import Users,accounts,journal_entries,inventories,customers,vendors,inv_purchases,inv_sales,closing_process
+from dotenv import load_dotenv
+import os
 
 app=FastAPI()
-SECRET_KEY='secret123'
-#eng=create_engine('mysql+mysqlconnector://root:mishaalmalik@localhost/my_proj_two')
-eng=create_engine("postgresql+psycopg2://postgres:mishaalmalik@localhost:5432/postgres")
+
+db_url=os.getenv("DATABASE_URL")
+secret_key=os.getenv("SECRET_KEY")
+eng=create_engine(db_url)
 Sessionlocal=sessionmaker(bind=eng)
 #Base=declarative_base()
 
@@ -40,7 +43,7 @@ def verify_password(plain_password,hashed_password):
 def issue_token(user_info:dict):
       data=user_info.copy()
       data['exp']=datetime.datetime.now()+timedelta(minutes=30)
-      tok=jwt.encode(data,SECRET_KEY,algorithm='HS256')
+      tok=jwt.encode(data,secret_key,algorithm='HS256')
       return tok
 
 def current_user(req:Request):
@@ -49,14 +52,14 @@ def current_user(req:Request):
             raise HTTPException(status_code=400,detail='invalid credentials')
       tok=data.split(" ")[1]
       try:
-            get_dict=jwt.decode(tok,SECRET_KEY,algorithms=["HS256"])
+            get_dict=jwt.decode(tok,secret_key,algorithms=["HS256"])
             return get_dict["user"]
       except JWTError:
             raise HTTPException(status_code=400,detail='Token got expired')
 
 def current_user_two(tok=Depends(oauth2_scheme)):
       try:
-            get_dict=jwt.decode(tok,SECRET_KEY,algorithms=['HS256'])
+            get_dict=jwt.decode(tok,secret_key,algorithms=['HS256'])
             return get_dict['user']
       except JWTError:
             raise HTTPException(status_code=401,
@@ -115,7 +118,7 @@ async def token_check(req:Request):
       get_token=req.headers.get('Authorization')
       tok=get_token.split(" ")[1]
       try:
-            jwt.decode(tok,SECRET_KEY,algorithms=['HS256'])
+            jwt.decode(tok,secret_key,algorithms=['HS256'])
       except Exception:
             raise HTTPException(status_code=401,detail='Invalid credentials')
       return {'msg':'ok'}
