@@ -1,8 +1,13 @@
 from sqlalchemy import Column,Integer,String,ForeignKey,DateTime,func,create_engine,alias
 from sqlalchemy.orm import sessionmaker,declarative_base
+from dotenv import load_dotenv
+import os 
 
+load_dotenv()
+
+db_url=os.getenv("DATABASE_URL")
 Base=declarative_base()
-eng=create_engine("postgresql+psycopg2://postgres:mishaalmalik@localhost:5432/postgres")
+eng=create_engine(db_url)
 
 class Users(Base):
     __tablename__='main_users'
