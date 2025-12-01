@@ -96,7 +96,7 @@ async def add_user(username=Form(...),password=Form(...),db=Depends(get_db_two))
       await db.commit()
       #user_info=db.query(Users).filter_by(user_name=username).first()
       query=await db.execute(select(Users).where(Users.user_name == data['username']))
-      user_info = query.first()
+      user_info = query.scalar()
       cogs_acc=accounts(user_id=user_info.id,account_name='COGS',account_nature='debit',
                          account_type='income statement',account_subtype='expenses',account_subtypetwo='cost of goods sold')
       bad_debts_acc=accounts(user_id=user_info.id,account_name='bad debts',account_nature='debit',
@@ -116,9 +116,9 @@ async def add_user(username=Form(...),password=Form(...),db=Depends(get_db_two))
       db.add(cogs_acc)
       db.add(p_l_c)
       db.add(discount_received)
-      tok=issue_token({'user':username})
+      #tok=issue_token({'user':username})
       await db.commit()
-      return tok
+      return {"msg":"added"}
 
 @app.get('/tokencheck')
 async def token_check(req:Request):
