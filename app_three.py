@@ -1,5 +1,6 @@
 from input_models import CreateAccount,AddCustomer,AddVendor,AddInventory,PurchaseInv,AddInvoice,ReturnInv,BadDebts,SingleJournal,CustomerPayment,CashReturnInv
 from sqlalchemy.orm import sessionmaker,session,declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine,AsyncSession
 from sqlalchemy import create_engine,func,distinct,text,and_,or_,select
 import datetime
 from datetime import timedelta
@@ -14,12 +15,14 @@ import os
 
 app=FastAPI()
 
-db_url=os.getenv("DATABASE_URL")
-#db_url=os.getenv("RENDER_DB_URL")
+#db_url=os.getenv("DATABASE_URL")
+db_url=os.getenv("RENDER_DB_URL")
 secret_key=os.getenv("SECRET_KEY")
-eng=create_engine(db_url)
-Sessionlocal=sessionmaker(bind=eng)
+#eng=create_engine(db_url)
+#Sessionlocal=sessionmaker(bind=eng)
 #Base=declarative_base()
+eng=create_async_engine(db_url)
+async_session=sessionmaker(bind=eng,class_=AsyncSession)
 
 app.add_middleware(CORSMiddleware,allow_origins=["*"]
                    ,allow_methods=["*"],allow_credentials=True,
@@ -28,12 +31,18 @@ app.add_middleware(CORSMiddleware,allow_origins=["*"]
 pwd_context=CryptContext(schemes=["bcrypt"],deprecated='auto')
 oauth2_scheme=OAuth2PasswordBearer(tokenUrl='login')
 
+"""
 def get_db_two():
       my_session=Sessionlocal()
       try:
             yield my_session
       finally:
             my_session.close()
+"""
+
+async def get_db_two():
+      async with async_session() as session_local:
+            yield session_local
 
 def hash_password(password:str):
       return pwd_context.hash(password)
@@ -87,9 +96,13 @@ async def main_page():
 @app.post("/adduser")
 async def add_user(username=Form(...),password=Form(...),db=Depends(get_db_two)):
       data={'username':username,'password':password}
-      res=db.query(Users).filter_by(user_name=data['username']).first()
+      #res=db.query(Users).filter_by(user_name=data['username']).first()
+      stmt=select(Users).where(Users.user_name == data['username'])
+      query = await db.execute(stmt)
+      res = query.scalar()
       if not res == None:
             raise HTTPException(status_code=400,detail='User already exists')
+
       hashed_pass=hash_password(data['password'])
       add_user=Users(user_name=data['username'],user_pass=hashed_pass)
       db.add(add_user)
