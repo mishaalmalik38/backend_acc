@@ -14,8 +14,8 @@ import os
 
 app=FastAPI()
 
-#db_url=os.getenv("DATABASE_URL")
-db_url=os.getenv("RENDER_DB_URL")
+db_url=os.getenv("DATABASE_URL")
+#db_url=os.getenv("RENDER_DB_URL")
 secret_key=os.getenv("SECRET_KEY")
 eng=create_engine(db_url)
 Sessionlocal=sessionmaker(bind=eng)
