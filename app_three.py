@@ -15,12 +15,13 @@ import os
 app=FastAPI()
 
 db_url=os.getenv("DATABASE_URL")
+#db_url=os.getenv("RENDER_DB_URL")
 secret_key=os.getenv("SECRET_KEY")
 eng=create_engine(db_url)
 Sessionlocal=sessionmaker(bind=eng)
 #Base=declarative_base()
 
-app.add_middleware(CORSMiddleware,allow_origins=["http://localhost:5173"]
+app.add_middleware(CORSMiddleware,allow_origins=["*"]
                    ,allow_methods=["*"],allow_credentials=True,
                    allow_headers=["*"])
 
@@ -92,8 +93,10 @@ async def add_user(username=Form(...),password=Form(...),db=Depends(get_db_two))
       hashed_pass=hash_password(data['password'])
       add_user=Users(user_name=data['username'],user_pass=hashed_pass)
       db.add(add_user)
-      db.commit()
-      user_info=db.query(Users).filter_by(user_name=username).first()
+      await db.commit()
+      #user_info=db.query(Users).filter_by(user_name=username).first()
+      query=await db.execute(select(Users).where(Users.user_name == data['username']))
+      user_info = query.first()
       cogs_acc=accounts(user_id=user_info.id,account_name='COGS',account_nature='debit',
                          account_type='income statement',account_subtype='expenses',account_subtypetwo='cost of goods sold')
       bad_debts_acc=accounts(user_id=user_info.id,account_name='bad debts',account_nature='debit',
@@ -102,15 +105,19 @@ async def add_user(username=Form(...),password=Form(...),db=Depends(get_db_two))
                          account_type='income statement',account_subtype='incomes',account_subtypetwo='sales')
       cash_acc=accounts(user_id=user_info.id,account_name='cash',account_nature='debit',
                         account_type='assets',account_subtype='current assets',account_subtypetwo='cash')
-      p_l_c=accounts(user_id=username,account_name='p_l_balance',account_type='liabilities',
+      p_l_c=accounts(user_id=user_info.id,account_name='p_l_balance',account_type='liabilities',
                      account_subtype='reserves&surplus',account_subtypetwo='p_and_l_balance')
+      discount_received=accounts(user_id=user_info.id,account_name='discount received',
+                  account_nature='credit',account_type='income statement',account_subtype='incomes',account_subtypetwo='Other gains and incomes')
+      
       db.add(cash_acc)
       db.add(bad_debts_acc)
       db.add(sales_acc)
       db.add(cogs_acc)
       db.add(p_l_c)
-      db.commit()
+      db.add(discount_received)
       tok=issue_token({'user':username})
+      await db.commit()
       return tok
 
 @app.get('/tokencheck')
@@ -369,7 +376,7 @@ async def return_inventory(req:ReturnInv,db=Depends(get_db_two)
       res=db.query(inv_sales).filter_by(user_id=cur_user,id=inv_id).first()
       if res == None:
             raise HTTPException(status_code=400,detail='inv_id does not exists')
-    
+      
       avgp=res.sales_price / res.qty
       return_cash_qty=res.amount_paid / avgp
       if data['return_qty'] > (res.qty - res.return_qty - return_cash_qty):
@@ -382,7 +389,7 @@ async def return_inventory(req:ReturnInv,db=Depends(get_db_two)
 
       c_p=(res.cost_of_goods_sold / res.qty) * int(data['return_qty'])
       s_p=(res.sales_price / res.qty) * int(data['return_qty'])
-      acc_name=db.query(inv_sales.inv_name).filter_by(user_id=cur_user,id=inv_id).scalar()
+      acc_name=db.query(inventories.account_name).filter_by(user_id=cur_user,inv_name=res.inv_name).scalar()
       j_n=add_journal_entry(db,acc_name,'COGS',c_p,cur_user)
       add_journal_entry(db,'sales',res.customer_name,s_p,cur_user,journal_no=j_n)
       
